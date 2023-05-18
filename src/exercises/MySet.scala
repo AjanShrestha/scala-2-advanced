@@ -70,7 +70,8 @@ class EmptySet[A] extends MySet[A] {
 
   override def --(anotherSet: MySet[A]): MySet[A] = this
 
-   override def unary_! : MySet[A] = new AllInclusiveSet[A]
+  // all inclusive set
+  override def unary_! : MySet[A] = new PropertyBasedSet[A](_ => true)
 }
 
 /*
@@ -103,8 +104,42 @@ class AllInclusiveSet[A] extends MySet[A] {
 */
 // ??? over few of the properties
 
-// denotes all the elements of Type A that satisfy property
-// class PropertyBasedSet[A](property: A => Boolean) extends MySet[A]
+// all the elements of Type A which satisfy a property
+// {x in A | property(x) }
+class PropertyBasedSet[A](property: A => Boolean) extends MySet[A] {
+  override def contains(elem: A): Boolean = property(elem)
+
+  override def +(elem: A): MySet[A] =
+  // { x in A | property(x) } + element
+  //  = { x in A | property(x) || x == element }
+    new PropertyBasedSet[A](x => property(x) || x == elem)
+
+  // { x in A | property(x) } ++ set
+  //  = { x in A | property(x) || set contains x }
+  override def ++(anotherSet: MySet[A]): MySet[A] =
+    new PropertyBasedSet[A](x => property(x) || anotherSet(x))
+
+  // all integers (infinite) => (transformer) => ??? can we test if it's finite?
+  override def map[B](f: A => B): MySet[B] = politelyFail
+
+  override def flatMap[B](f: A => MySet[B]): MySet[B] = politelyFail
+
+  override def foreach(f: A => Unit): Unit = politelyFail
+
+  override def filter(predicate: A => Boolean): MySet[A] =
+    new PropertyBasedSet[A](x => property(x) && predicate(x))
+
+  override def -(elem: A): MySet[A] = filter(x => x != elem)
+
+  override def &(anotherSet: MySet[A]): MySet[A] = filter(anotherSet)
+
+  override def --(anotherSet: MySet[A]): MySet[A] = filter(!anotherSet)
+
+  override def unary_! : MySet[A] = new PropertyBasedSet[A](x => !property(x))
+
+  private def politelyFail =
+    throw new IllegalArgumentException("Really deep rabbit hole!")
+}
 
 class NonEmptySet[A](head: A, tail: MySet[A]) extends MySet[A] {
   override def contains(elem: A): Boolean =
@@ -159,7 +194,7 @@ class NonEmptySet[A](head: A, tail: MySet[A]) extends MySet[A] {
   // filter(x => !anotherSet(x))
     filter(!anotherSet)
 
-  def unary_! : MySet[A] = ???
+  def unary_! : MySet[A] = new PropertyBasedSet[A](x => !this.contains(x))
 }
 
 object MySet {
@@ -181,7 +216,18 @@ object MySet {
 }
 
 object MySetPlayground extends App {
-  val s = MySet(1, 2, 3, 4)
+  private val s = MySet(1, 2, 3, 4)
   s + 5 ++ MySet(-1, -2) + 3 flatMap (x =>
     MySet(x, x * 10)) filter (_ % 2 == 0) foreach println
+
+  private val negative = !s // s.unary_! = all the naturals not equal to 1,2,3,4
+  println(negative(2))
+  println(negative(5))
+
+  private val negativeEven = negative.filter(_ % 2 == 0)
+  println(negativeEven(5))
+  println(negativeEven(8))
+
+  private val negativeEven5 = negativeEven + 5 // all the even numbers > 4 + 5
+  println(negativeEven5(5))
 }
