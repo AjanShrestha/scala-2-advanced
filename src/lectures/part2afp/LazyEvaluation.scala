@@ -85,7 +85,7 @@ object LazyEvaluation extends App {
       naturals.map(_ * 2) // stream of all even numbers (potentially infinite)
    */
 
-  private abstract class MyStream[+A] {
+  abstract class MyStream[+A] {
     def isEmpty: Boolean
 
     def head: A
