@@ -1,7 +1,8 @@
 package lectures.part3concurrency
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Failure, Random, Success}
+import scala.concurrent.duration._
 
 // IMPORTANT for futures
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -113,4 +114,102 @@ object FuturesPromises extends App {
   private val fallbackResult = SocialNetwork
     .fetchProfile("unknown id")
     .fallbackTo(SocialNetwork.fetchProfile("fb.id.o-dummy"))
+
+  // online banking app
+  case class User(name: String)
+
+  case class Transaction(
+                          sender: String,
+                          receiver: String,
+                          amount: Double,
+                          status: String)
+
+  object BankingApp {
+    val name = "Rock the JVM banking"
+
+    def fetchUser(name: String): Future[User] = Future {
+      // simulate fetching from the DB
+      Thread.sleep(500)
+      User(name)
+    }
+
+    def createTransaction(
+                           user: User,
+                           merchantName: String,
+                           amount: Double
+                         ): Future[Transaction] = Future {
+      // simulate some processes
+      Thread.sleep(1000)
+      Transaction(user.name, merchantName, amount, "SUCCESS")
+    }
+
+    def purchase(
+                  username: String,
+                  item: String,
+                  merchantName: String,
+                  cost: Double): String = {
+      // fetch the user from the DB
+      // create a transaction
+      // WAIT for the transaction to finish
+      val transactionStatusFuture = for {
+        user <- fetchUser(username)
+        transaction <- createTransaction(user, merchantName, cost)
+      } yield transaction.status
+
+      // block the transaction status future
+      Await.result(transactionStatusFuture, 2.seconds)
+      // implicit conversions -> pimp my library
+      // it will block call until all the waiting futures are completed
+      // in case duration is timeout, it will throw an exception
+    }
+  }
+
+  println(
+    BankingApp
+      .purchase(
+        "Daniel",
+        "iPhone 12",
+        "rock the jvm store",
+        3000
+      )
+  )
+
+  // promises
+  // futures are the functional way of composing
+  // non-blocking computation which will return at some point
+  // we can only read or manipulate the results from Futures
+  // either by calling onComplete or better by using functional composition
+  // futures are read-only when they are done
+  // sometimes we need to specifically set or complete
+  // a future at a point of our choosing
+  private val promise = Promise[Int]() // "controller" over a future
+  private val future = promise.future
+
+  // Promise Pattern
+  // one thread knows how to handle the future
+  // thread 1 - "consumer"
+  future.onComplete {
+    case Success(r) => println("[consumer] I've received " + r)
+  }
+
+  // other thread inserts values/failures into the future
+  // thread 2 - "producer"
+  private val producer = new Thread(() => {
+    println("[producer] crunching numbers...")
+    Thread.sleep(500)
+    // "fulfilling" the promise
+    promise.success(42)
+    // promise.failure(...)
+    println("[producer] done")
+  })
+
+  producer.start()
+  Thread.sleep(1000)
+  // Producer-consumer doesn't have concurrency issues
+  // The future promise paradigm is more powerful
+  // It separates the concern of
+  //  - reading/handling futures
+  //  - writing a promise
+  //  - provides when and how to set a value for future when you see fit
+  //  - eliminates concurrency issues
 }
