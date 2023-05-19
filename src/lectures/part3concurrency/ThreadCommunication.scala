@@ -1,5 +1,8 @@
 package lectures.part3concurrency
 
+import scala.collection.mutable
+import scala.util.Random
+
 object ThreadCommunication extends App {
 
   // Problem: Enforce a certain order of execution in Thread
@@ -138,5 +141,76 @@ object ThreadCommunication extends App {
     producer.start()
   }
 
-  smartProdCons()
+  // smartProdCons()
+
+  /*
+   * Case
+   *  Instead of simple container we have a buffer
+   *  - Producer can produce values (continuously)
+   *  - Consumer can consume values (continuously)
+   *
+   *  producer -> [ ? ? ? ] -> consumer
+   *
+   *  Complication
+   *  - both the producer and consumer may block each other
+   *    - if the buffer if full, producer must block until
+   *        consumer has finished extracting values from the buffer
+   *    - vice-versa
+   */
+
+  private def prodConsLargeBuffer(): Unit = {
+    val buffer: mutable.Queue[Int] = new mutable.Queue[Int]
+    val capacity = 3
+    val CONSUMER_IDLE_TIME = 500 // ms
+    val PRODUCER_IDLE_TIME = 500 // ms
+
+    val consumer = new Thread(() => {
+      val random = new Random()
+
+      while (true) {
+        buffer.synchronized {
+          if (buffer.isEmpty) {
+            println("[consumer] buffer empty, waiting...")
+            buffer.wait()
+          }
+
+          // there must be at least ONE value in the buffer
+          val x = buffer.dequeue()
+          println("[consumer] consumed " + x)
+
+          // hey producer, there's empty space available, are you lazy?!
+          buffer.notify()
+        }
+        Thread.sleep(random.nextInt(CONSUMER_IDLE_TIME))
+      }
+    })
+
+    val producer = new Thread(() => {
+      val random = new Random()
+      var i = 0 // sequencer
+
+      while (true) {
+        buffer.synchronized {
+          if (buffer.size == capacity) {
+            println("[producer] buffer is full, waiting...")
+            buffer.wait()
+          }
+
+          // there must be at least ONE EMPTY SPACE in the buffer
+          println("[producer] producing " + i)
+          buffer.enqueue(i)
+
+          // hey consumer, new food for you!
+          buffer.notify()
+          i += 1
+        }
+        Thread.sleep(random.nextInt(PRODUCER_IDLE_TIME))
+      }
+    })
+
+    consumer.start()
+    producer.start()
+  }
+
+  prodConsLargeBuffer()
 }
