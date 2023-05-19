@@ -253,6 +253,7 @@ object ThreadCommunication extends App {
           println(s"[consumer $id] consumed " + x)
 
           buffer.notify()
+          // buffer.notifyAll() // same as notify
         }
         Thread.sleep(random.nextInt(CONSUMER_IDLE_TIME))
       }
@@ -282,6 +283,7 @@ object ThreadCommunication extends App {
           buffer.enqueue(i)
 
           buffer.notify()
+          // buffer.notifyAll() // same as notify
           i += 1
         }
         Thread.sleep(random.nextInt(PRODUCER_IDLE_TIME))
@@ -299,5 +301,82 @@ object ThreadCommunication extends App {
       .foreach(i => new Producer(i, buffer, capacity).start())
   }
 
-  multiProdCons(3, 6)
+  // multiProdCons(3, 6)
+
+  // Exercises
+  /*
+   * 1. think of an example where notifyAll acts in a different way than notify?
+   * 2. create a deadlock
+   *      - threads are locked i.e. waiting for resource to free up
+   * 3. create a livelock
+   *      - threads yield execution to each other such that no body can continue
+   *      - threads are active but cannot continue
+   */
+
+  // 1- notifyAll
+  private def testNotifyAll(): Unit = {
+    val bell = new Object
+
+    (1 to 10).foreach(i => new Thread(() => {
+      bell.synchronized {
+        println(s"[thread $i] waiting...")
+        bell.wait()
+        println(s"[thread $i] hooray!")
+      }
+    }).start())
+
+    new Thread(() => {
+      Thread.sleep(2000)
+      bell.synchronized {
+        println("[announcer] Rock'n roll!")
+        bell.notify()
+        // bell.notifyAll()
+      }
+    }).start()
+  }
+
+  // testNotifyAll()
+
+  // 2 - deadlock
+  case class Friend(name: String) {
+    def bow(other: Friend): Unit = {
+      this.synchronized {
+        println(s"$this: I am bowing to my friend $other")
+        other.rise(this)
+        println(s"$this: my friend $other has risen")
+      }
+    }
+
+    def rise(other: Friend): Unit = {
+      this.synchronized {
+        println(s"$this: I am rising to my friend $other")
+      }
+    }
+
+    // 3
+    private var side = "right"
+
+    private def switchSide(): Unit = {
+      if (side == "right") side = "left"
+      else side = "right"
+    }
+
+    def pass(other: Friend): Unit = {
+      while (this.side == other.side) {
+        println(s"$this: Oh, but please, $other, feel free to pass")
+        switchSide()
+        Thread.sleep(1000)
+      }
+    }
+  }
+
+  private val sam = Friend("Sam")
+  private val pierre = Friend("Pierre")
+
+  // new Thread(() => sam.bow(pierre)).start() // sam's lock,    |   then pierre's lock
+  // new Thread(() => pierre.bow(sam)).start() // pierre's lock, |   then sam's lock
+
+  // 3 - livelock
+  new Thread(() => sam.pass(pierre)).start()
+  new Thread(() => pierre.pass(sam)).start()
 }
