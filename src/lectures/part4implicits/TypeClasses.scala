@@ -31,7 +31,7 @@ object TypeClasses extends App {
 
   // option 2 - pattern matching
   object HTMLSerializerPM {
-    def serializeToHTML(value: Any) = value match {
+    def serializeToHTML(value: Any): Unit = value match {
       case User(n, a, e) =>
       // case java.util.Date =>
       case _ =>
@@ -50,7 +50,7 @@ object TypeClasses extends App {
     def serialize(value: T): String
   }
 
-  private object UserSerializer extends HTMLSerializer[User] {
+  implicit private object UserSerializer extends HTMLSerializer[User] {
     override def serialize(user: User): String =
       s"<div>${user.name} (${user.age} yo) <a href=${user.email}/> </div>"
   }
@@ -92,6 +92,11 @@ object TypeClasses extends App {
     def action(value: T): String
   }
 
+  object MyTypeClassTemplate {
+    def apply[T](implicit instance: MyTypeClassTemplate[T]): MyTypeClassTemplate[T] =
+      instance
+  }
+
   /*
    * Exercise: Equality
    */
@@ -99,7 +104,7 @@ object TypeClasses extends App {
     def apply(a: T, b: T): Boolean
   }
 
-  object NameEquality extends Equal[User] {
+  implicit object NameEquality extends Equal[User] {
     override def apply(a: User, b: User): Boolean =
       a.name == b.name
   }
@@ -108,4 +113,54 @@ object TypeClasses extends App {
     override def apply(a: User, b: User): Boolean =
       a.name == b.name && a.email == b.email
   }
+
+  // part 2
+  // Implicit Type class instances
+  // by implicit values and parameters
+  private object HTMLSerializer {
+    def serializer[T](value: T)(implicit serializer: HTMLSerializer[T]): String =
+      serializer.serialize(value)
+
+    // an even better design
+    // makes the compiler surface out the implicit value
+    def apply[T](implicit serializer: HTMLSerializer[T]): HTMLSerializer[T] =
+      serializer
+  }
+
+  // private object IntSerializer extends HTMLSerializer[Int] {
+  implicit private object IntSerializer extends HTMLSerializer[Int] {
+    override def serialize(value: Int): String =
+      s"<div style='color=blue;'>$value</div>"
+  }
+
+  // println(HTMLSerializer.serializer(42)(IntSerializer))
+  println(HTMLSerializer.serializer(42))
+
+  /*
+   * advantage
+   *  - compiler will fetch the correct implicit type class instance
+   *    and inject it for us
+   */
+  println(HTMLSerializer.serializer(john))
+  // after apply returns implicit type class instance
+  println(HTMLSerializer[User].serialize(john))
+  /*
+   * advantage
+   *  - access to the entire Type Class interface
+   */
+
+  // Exercise
+  /*
+   * implement the TC pattern for the Equality tc
+   */
+  private object Equal {
+    def apply[T](a: T, b: T)(implicit equalizer: Equal[T]): Boolean =
+      equalizer.apply(a, b)
+  }
+
+  private val anotherJohn = User("John", 45, "aniotherJohn@rtjvm.com")
+  println(Equal(john, anotherJohn))
+  // AD-HOC polymorphism
+  // if 2 distinct or unrelated types have equalizers implemented
+  // then we call the Equal as polymorphism
 }
