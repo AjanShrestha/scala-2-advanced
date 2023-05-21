@@ -87,32 +87,6 @@ object TypeClasses extends App {
   // All that extends the Type Class
   // must implement the operations
 
-  // TYPE CLASS
-  trait MyTypeClassTemplate[T] {
-    def action(value: T): String
-  }
-
-  object MyTypeClassTemplate {
-    def apply[T](implicit instance: MyTypeClassTemplate[T]): MyTypeClassTemplate[T] =
-      instance
-  }
-
-  /*
-   * Exercise: Equality
-   */
-  trait Equal[T] {
-    def apply(a: T, b: T): Boolean
-  }
-
-  implicit object NameEquality extends Equal[User] {
-    override def apply(a: User, b: User): Boolean =
-      a.name == b.name
-  }
-
-  object FullEquality extends Equal[User] {
-    override def apply(a: User, b: User): Boolean =
-      a.name == b.name && a.email == b.email
-  }
 
   // part 2
   // Implicit Type class instances
@@ -148,19 +122,4 @@ object TypeClasses extends App {
    * advantage
    *  - access to the entire Type Class interface
    */
-
-  // Exercise
-  /*
-   * implement the TC pattern for the Equality tc
-   */
-  private object Equal {
-    def apply[T](a: T, b: T)(implicit equalizer: Equal[T]): Boolean =
-      equalizer.apply(a, b)
-  }
-
-  private val anotherJohn = User("John", 45, "aniotherJohn@rtjvm.com")
-  println(Equal(john, anotherJohn))
-  // AD-HOC polymorphism
-  // if 2 distinct or unrelated types have equalizers implemented
-  // then we call the Equal as polymorphism
 }
