@@ -1,7 +1,5 @@
 package lectures.part1as
 
-import sun.security.ec.point.ProjectivePoint.Mutable
-
 import scala.util.Try
 
 object DarkSugars extends App {
